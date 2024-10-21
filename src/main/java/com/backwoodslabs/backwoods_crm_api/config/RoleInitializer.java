@@ -14,7 +14,7 @@ public class RoleInitializer implements CommandLineRunner {
     private final RoleRepository roleRepository;
 
     @Override
-    public void run(String... args) throws Exception {
+    public void run(String... args) {
         if (roleRepository.findByName(ERole.ROLE_USER).isEmpty()) {
             Role userRole = new Role();
             userRole.setName(ERole.ROLE_USER);

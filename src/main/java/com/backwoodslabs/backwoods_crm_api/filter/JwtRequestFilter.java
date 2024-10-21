@@ -34,19 +34,24 @@ public class JwtRequestFilter extends OncePerRequestFilter {
                                     @NonNull HttpServletResponse response,
                                     @NonNull FilterChain chain) throws ServletException, IOException {
 
-        final String jwtToken = getJwtFromRequest(request);
+        String jwtToken = getJwtFromRequest(request);
 
         if (jwtToken != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-            String username = null;
-            try {
-                username = jwtTokenService.extractUsername(jwtToken);
-            } catch (JwtException | IllegalArgumentException e) {
-                logger.warn("JWT token parsing failed: " + e.getMessage());
-                chain.doFilter(request, response);
-                return;
-            }
+            authenticateWithToken(jwtToken, request);
+        }
 
-            UserDetails userDetails = this.customUserDetailsService.loadUserByUsername(username);
+        chain.doFilter(request, response);
+    }
+
+    private String getJwtFromRequest(HttpServletRequest request) {
+        String bearerToken = request.getHeader("Authorization");
+        return (bearerToken != null && bearerToken.startsWith("Bearer ")) ? bearerToken.substring(7) : null;
+    }
+
+    private void authenticateWithToken(String jwtToken, HttpServletRequest request) {
+        try {
+            String username = jwtTokenService.extractUsername(jwtToken);
+            UserDetails userDetails = customUserDetailsService.loadUserByUsername(username);
 
             if (jwtTokenService.validateToken(jwtToken, userDetails)) {
                 UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
@@ -54,17 +59,8 @@ public class JwtRequestFilter extends OncePerRequestFilter {
                 authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(authToken);
             }
+        } catch (JwtException | IllegalArgumentException e) {
+            logger.warn("JWT token parsing failed: " + e.getMessage());
         }
-        chain.doFilter(request, response);
-    }
-
-    private String getJwtFromRequest(HttpServletRequest request) {
-        String bearerToken = request.getHeader("Authorization");
-        if (bearerToken != null && bearerToken.startsWith("Bearer ")) {
-            return bearerToken.substring(7);
-        }
-        return null;
     }
 }
-
-
